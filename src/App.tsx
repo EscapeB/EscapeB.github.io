@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import marked from 'marked';
-import _ from 'lodash';
 import Promise from 'bluebird';
 import StyleSheet from './components/StyleSheet';
 import Editor from './components/Editor';
@@ -15,37 +14,32 @@ enum TARGET {
   WORK,
   STYLESHEET,
 }
-// code buffer
-let editorStrBuffer = '';
 
-// the style write buffer
-let styleBuffer = '';
-
-// work string buffer
-let workBuffer = '';
-
-// whether the comment is open
-let openComment = false;
-
-// skip
-let isSkiped = false;
-
-// pause
-let isPasued = false;
-
-// speed
+//animation speed
 const speed = process.env.NODE_ENV === 'development' ? 1 : 16;
 const App: React.FC = () => {
-  // refs
+  /* refs */
   const editorRef = useRef<HTMLPreElement>(null);
   const workRef = useRef<HTMLPreElement>(null);
+  // code buffer
+  const editorStrBuffer = useRef<string>('');
+  // the style write buffer
+  const styleBuffer = useRef<string>('');
+  // work string buffer
+  const workBuffer = useRef<string>('');
+  // whether the comment is open
+  const openComment = useRef<boolean>(false);
+  // pause
+  const isPaused = useRef<boolean>(true);
+  // isEnd
+  const isEnd = useRef<boolean>(true);
 
-  // hook state
+  /* hook state */
   const [style, setStyle] = useState<string>('');
   const [editorStr, setEditorStr] = useState<string>('');
   const [workStr, setWorkStr] = useState<string>('');
+  const [isPausedView, setIsPausedView] = useState<boolean>(true);
 
-  // hook functions
   /**
    *
    * @param target target element to scroll
@@ -62,79 +56,77 @@ const App: React.FC = () => {
    * @param target element to write
    * @param chars chars to write
    * @param updateView wheather upate view
-   * @param pos position of this write
    */
-  function writeChar(
-    target: TARGET,
-    chars: string,
-    updateView = true,
-    pos: number | undefined = 0
-  ): string {
+  function writeChar(target: TARGET, chars: string, updateView = true): void {
     // if target is style just write
     if (target === TARGET.STYLESHEET) {
-      styleBuffer += chars;
+      styleBuffer.current += chars;
       // we buffer the chars and render it in <style> tag only when chars matches ';'
       // which means the end of css properties
       if (chars === ';') {
         if (updateView) {
-          setStyle(styleBuffer);
+          setStyle(styleBuffer.current);
         }
       }
-      return styleBuffer;
     }
     // if target is editor, we need to handle the chars with html tag
     else if (target === TARGET.EDITOR) {
       // if write to editor, we need write it in style also
-      writeChar(TARGET.STYLESHEET, chars);
+      writeChar(TARGET.STYLESHEET, chars, updateView);
       const commentRegex = /(\/\*(?:[^](?!\/\*))*\*)$/;
       const cssPropertiesRegex = /([a-zA-Z- ^\n]*):([^:]*)$/;
-      const selectorRegex = /((.|,[\n|\r\n|\r])*)$/;
+      const selectorRegex = /((.|,\r|,\r\n|,\n)*)$/;
       const unitRegex = /(\d+)(px|vh|vw|em|rem|s)*/g;
-      if (openComment && chars !== '/') {
+      if (openComment.current && chars !== '/') {
         // Short-circuit during a comment so we don't highlight inside it.
-        editorStrBuffer += chars;
-      } else if (chars === '/' && openComment === false) {
-        openComment = true;
-        editorStrBuffer += chars;
-      } else if (chars === '/' && editorStrBuffer.slice(-1) === '*' && openComment === true) {
-        openComment = false;
+        editorStrBuffer.current += chars;
+      } else if (chars === '/' && openComment.current === false) {
+        openComment.current = true;
+        editorStrBuffer.current += chars;
+      } else if (
+        chars === '/' &&
+        editorStrBuffer.current.slice(-1) === '*' &&
+        openComment.current === true
+      ) {
+        openComment.current = false;
         // Unfortunately we can't just open a span and close it, because the browser will helpfully
         // 'fix' it for us, and we'll end up with a single-character span and an empty closing tag.
-        editorStrBuffer = editorStrBuffer.replace(commentRegex, '<span class="comment">$1/</span>');
+        editorStrBuffer.current = editorStrBuffer.current.replace(
+          commentRegex,
+          '<span class="comment">$1/</span>'
+        );
       } else if (chars === ';') {
-        editorStrBuffer = editorStrBuffer.replace(cssPropertiesRegex, (...$: string[]) => {
-          // replace unit in css
-          if ($[2]) {
-            $[2] = $[2].replace(unitRegex, '$1<span class="unit">$2</span>');
+        editorStrBuffer.current = editorStrBuffer.current.replace(
+          cssPropertiesRegex,
+          (...$: string[]) => {
+            // replace unit in css
+            if ($[2]) {
+              $[2] = $[2].replace(unitRegex, '$1<span class="unit">$2</span>');
+            }
+            return `<span class="key">${$[1]}</span>:<span class="value">${$[2]}</span>;`;
           }
-          console.log($[2]);
-          return `<span class="key">${$[1]}</span>:<span class="value">${$[2]}</span>;`;
-        });
-
-        // editorStrBuffer = editorStrBuffer.replace(valueRegex, '<span class="value">$1</span>;');
+        );
       } else if (chars === '{') {
-        editorStrBuffer = editorStrBuffer.replace(
+        editorStrBuffer.current = editorStrBuffer.current.replace(
           selectorRegex,
           '<span class="selector">$1</span>{'
         );
       } else {
-        editorStrBuffer += chars;
+        editorStrBuffer.current += chars;
       }
       if (updateView) {
-        setEditorStr(editorStrBuffer);
+        setEditorStr(editorStrBuffer.current);
       }
-      return editorStrBuffer;
     } else if (target === TARGET.WORK) {
-      workBuffer += chars;
+      workBuffer.current += chars;
       if (updateView) {
-        if (pos === workData.length) {
-          setWorkStr(marked.parse(workBuffer));
+        if (workBuffer.current.length >= workData.length) {
+          setWorkStr(marked.parse(workBuffer.current));
         } else {
-          setWorkStr(workBuffer);
+          setWorkStr(workBuffer.current);
         }
       }
     }
-    return '';
   }
 
   /**
@@ -152,26 +144,21 @@ const App: React.FC = () => {
     charsPerWirte: number,
     delay: number
   ): Promise<void> {
-    // if skiped animation, just return to end the recursive
-    if (isSkiped) {
-      return;
-    }
-    // Write a character or multiple characters to the buffer.
-    const chars: string = targetData.slice(pos, pos + charsPerWirte);
-
-    pos += charsPerWirte;
-    // Ensure we stay scrolled to the bottom.
-    scrollToEnd(target);
-
-    writeChar(target, chars, true, pos);
-
-    // Schedule another write.
-    const endOfSentence = /[.?!]\s$/;
-    const comma = /\D[,]\s$/;
-    const endOfBlock = /[^/]\n\n$/;
-    if (pos < targetData.length) {
+    // write until is end
+    while (pos < targetData.length && !isEnd.current) {
+      // Write a character or multiple characters to the buffer.
+      const chars: string = targetData.slice(pos, pos + charsPerWirte);
+      pos += charsPerWirte;
+      writeChar(target, chars, true);
+      // Ensure we stay scrolled to the bottom.
+      scrollToEnd(target);
+      // regex
+      const endOfSentence = /[.?!]\s$/;
+      const comma = /\D[,]\s$/;
+      const endOfBlock = /[^/]\n\n$/;
       let thisInterval = delay;
       const thisSlice = targetData.slice(pos - 2, pos + 1);
+      // test the wirte chars and wait certain times
       if (comma.test(thisSlice)) {
         thisInterval = delay * 30;
       }
@@ -181,20 +168,22 @@ const App: React.FC = () => {
       if (endOfSentence.test(thisSlice)) {
         thisInterval = delay * 70;
       }
-
+      // wait if paused
       do {
         await Promise.delay(thisInterval);
-      } while (isPasued);
-
-      return write(target, targetData, pos, charsPerWirte, delay);
+        // if is end (skip) , break this
+        if (isEnd.current) {
+          break;
+        }
+      } while (isPaused.current);
     }
   }
   function handleSkip(): void {
-    isSkiped = !isSkiped;
     // clear all buffers
-    styleBuffer = '';
-    editorStrBuffer = '';
-    workBuffer = '';
+    styleBuffer.current = '';
+    editorStrBuffer.current = '';
+    workBuffer.current = '';
+    // write to buffers and don't update view
     for (const i of codeData) {
       writeChar(TARGET.EDITOR, i, false);
     }
@@ -204,24 +193,51 @@ const App: React.FC = () => {
     for (const i of workCss) {
       writeChar(TARGET.EDITOR, i, false);
     }
-    setEditorStr(editorStrBuffer);
+    // update views
+    setStyle(styleBuffer.current);
+    setEditorStr(editorStrBuffer.current);
     setWorkStr(marked(workData));
+    // set paused status
+    setIsPausedView(true);
+    // set variable
+    isPaused.current = true;
+    isEnd.current = true;
+    styleBuffer.current = '';
+    editorStrBuffer.current = '';
+    workBuffer.current = '';
   }
   function handlePause(): void {
-    isPasued = !isPasued;
+    isPaused.current = true;
+    setIsPausedView(true);
   }
   async function handleStart(): Promise<void> {
-    workBuffer = '';
-    styleBuffer = '';
-    isSkiped = false;
-    isPasued = false;
-    await write(TARGET.EDITOR, codeData, 0, 1, speed);
-    await write(TARGET.WORK, workData, 0, 1, speed);
-    await write(TARGET.EDITOR, workCss, 0, 1, speed / 2);
+    isPaused.current = false;
+    setIsPausedView(false);
+    // if animation is end, restart animation.
+    if (isEnd.current) {
+      isEnd.current = false;
+      styleBuffer.current = '';
+      editorStrBuffer.current = '';
+      workBuffer.current = '';
+      setStyle('');
+      setEditorStr('');
+      setWorkStr('');
+      await write(TARGET.EDITOR, codeData, 0, 1, speed);
+      await write(TARGET.WORK, workData, 0, 1, speed);
+      await write(TARGET.EDITOR, workCss, 0, 1, speed / 2).then(() => {
+        // reset variable
+        styleBuffer.current = '';
+        editorStrBuffer.current = '';
+        workBuffer.current = '';
+        isEnd.current = true;
+        setIsPausedView(true);
+      });
+    }
   }
 
   // hook effect
   useEffect(() => {
+    // just show resume on page loaded
     async function asyncHelper(): Promise<void> {
       handleSkip();
     }
@@ -233,7 +249,12 @@ const App: React.FC = () => {
       <StyleSheet style={style} />
       <Editor ref={editorRef} code={editorStr} />
       <Work ref={workRef} mdStr={workStr} />
-      <Controller onStart={handleStart} onSkip={handleSkip} onPause={handlePause} />
+      <Controller
+        pauseStatus={isPausedView}
+        onStart={handleStart}
+        onSkip={handleSkip}
+        onPause={handlePause}
+      />
     </div>
   );
 };
