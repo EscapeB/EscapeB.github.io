@@ -27,23 +27,24 @@
 ### KDS跨端框架
 KDS是快手内部的跨端动态化方案，是基于ReactNative容器的自研跨端框架。整个方案包含以下部分：
   **@kds/vue框架**
-  上层基于Vue语法的前端框架，基于Vue3的createRender，自定义VNode渲染器，适配跨端场景。
+  基于Vue语法的前端框架，基于Vue3的createRenderer，自定义VNode渲染器，适配跨端场景。其中包括对云runtime和compiler的改造。
   
   **@kds/polyfill**
-  RN容器内对W3C web标准的模拟，在RN容器中实现了DOM、CSS等能力的支持，并支持了绝大多数浏览器API的支持。
+  ReactNative容器内对W3C web标准的模拟，在容器的JS环境中实现了DOM、CSS等能力的支持，并提供了绝大多数浏览器API的支持。
   
   **@kds/devtools**
-  独立调试工具App，采取Electron便携，整合了VueDevtools和ChromeDevtools，底层基于ChromeDevtoolsProtocol和ChromeDebugProtocol，实现组件树、source调试等能力。
+  独立调试工具的采取Electron App，整合了VueDevtools和ChromeDevtools。
+  底层基于ChromeDevtoolsProtocol和ChromeDebugProtocol，实现组件树、source调试等能力。
 
   **@kds-ui/vue**
-  基于kds环境的vue组件库，提供40+ui组件。
+  基于kds环境的vue组件库，提供40+UI组件。
 
   **项目职责：**
     - 负责整个跨端方案前端侧的设计和推动，作为前端侧接口人和各方沟通和对接。
     - 作为框架侧、组件库、调试工具的主力开发。
   **项目成果：**
-    - 已承接日PV约百万级业务场景，目前有4+业务线接入使用。
-    - 启动性能较H5提升约50%，页面秒开率约87%。
+    - 已承接日PV百万级业务场景，目前有4+业务线接入使用。
+    - 启动性能较H5提升约50+%，页面秒开率达到87+%。
 ### PC/H5播放器SDK
 负责A站PC播放器SDK的开发工作，以及公司内业务通用H5播放器的开发以及性能优化工作。
   **项目内容**
@@ -51,13 +52,13 @@ KDS是快手内部的跨端动态化方案，是基于ReactNative容器的自研
     - 基于原生TS/JS和Svelte，多框架通用。
 
   **项目指责：**
-    - 负责SDK设计和开发
+    - 负责SDK设计和开发和约80%插件开发
   **项目成果：**
     - 通用H5播放器接入公司内20+业务，PC播放器接入5+业务。
 ### 高级弹幕
   高级弹幕项目包含编辑侧和渲染侧，用户在编辑侧对弹幕的文本和样式进行编辑后，可以在渲染侧进行弹幕动画的渲染和展示。[具体例子](https://www.acfun.cn/v/ac219707)
   **项目职责：**
-    - 负责高级弹幕整个方案和双端侧实现。
+    - 负责高级弹幕整个方案和编辑+渲染侧实现。
   **项目成果：**
     - 对视频卡顿率影响小于1%
     - 高级弹幕平均帧率50+

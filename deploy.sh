@@ -9,4 +9,4 @@ git commit -m 'docs:update profile';
 
 # subtree push to master branch
 
-git push origin `git subtree split --prefix dist master`:master
+git subtree push --prefix=dist origin master
