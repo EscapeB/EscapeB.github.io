@@ -1,4 +1,4 @@
-# [陈哲龙/<span>Sirius Chen</span>](http://sirius-chen.xyz/resume/)
+# [陈哲龙/<span>Sirius Chen</span>](https://escapeb.github.io/)
 
 ## 联系方式
 - 手机 : 13121859855
